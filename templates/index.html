@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Paraphraser Tester</title>
+    <style>
+        /* Basic styling for the app */
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .button-group {
+            margin-bottom: 20px;
+        }
+        #error {
+            color: red;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid red;
+            border-radius: 4px;
+            display: none;
+        }
+        #loader {
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+        }
+        .results-container {
+            margin-top: 20px;
+        }
+        .results-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .original-container {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            border: 1px solid #ddd;
+        }
+        .result-card {
+            background-color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.5s, transform 0.5s;
+            position: relative;
+        }
+        .result-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .result-placeholder {
+            height: 200px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { background-color: #f9f9f9; }
+            50% { background-color: #e9e9e9; }
+            100% { background-color: #f9f9f9; }
+        }
+        .result-type {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 18px;
+        }
+        .result-description {
+            color: #666;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+        .result-text {
+            white-space: pre-wrap;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #ddd;
+            color: #333;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .progress-container {
+            margin: 20px 0;
+            height: 20px;
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        .status-message {
+            text-align: center;
+            margin-top: 5px;
+            color: #666;
+        }
+        .api-status {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ff0000;
+            margin-right: 10px;
+        }
+        .status-indicator.online {
+            background-color: #4CAF50;
+        }
+        #serverStatus {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Resume Paraphraser Tester</h1>
+            <p>Paste your resume text and get multiple paraphrased versions</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="apiUrl">API URL:</label>
+            <input type="text" id="apiUrl" value="http://localhost:5000/paraphrase" placeholder="Enter API URL">
+            <div class="api-status">
+                <span id="statusIndicator" class="status-indicator"></span>
+                <span id="serverStatus">Server status unknown</span>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="inputText">Paste your resume text:</label>
+            <textarea id="inputText" rows="12" placeholder="Paste your resume text here"></textarea>
+        </div>
+        
+        <div class="button-group">
+            <button id="paraphraseBtn">Paraphrase Resume</button>
+            <button id="loadSampleBtn">Load Sample</button>
+            <button id="checkApiBtn">Check API</button>
+        </div>
+        
+        <div id="error" style="display: none;"></div>
+        
+        <div id="loader" style="display: none;">
+            <div>Processing your resume... This might take a minute.</div>
+        </div>
+        
+        <div id="progressBarContainer" class="progress-container">
+            <div id="progressBar" class="progress-bar"></div>
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+        
+        <div id="results" class="results-container" style="display: none;">
+            <div class="results-header">Original Text:</div>
+            <div id="originalText" class="original-container"></div>
+            
+            <div class="results-header">Paraphrased Versions:</div>
+            <div id="paraphraseResults"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputText = document.getElementById('inputText');
+            const apiUrl = document.getElementById('apiUrl');
+            const paraphraseBtn = document.getElementById('paraphraseBtn');
+            const loadSampleBtn = document.getElementById('loadSampleBtn');
+            const checkApiBtn = document.getElementById('checkApiBtn');
+            const loader = document.getElementById('loader');
+            const error = document.getElementById('error');
+            const results = document.getElementById('results');
+            const originalText = document.getElementById('originalText');
+            const paraphraseResults = document.getElementById('paraphraseResults');
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            const progressBar = document.getElementById('progressBar');
+            const statusMessage = document.getElementById('statusMessage');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const serverStatus = document.getElementById('serverStatus');
+            
+            // Cache API response
+            const responseCache = {};
+            
+            // Sample resume text unchanged
+            const sampleResumeText = `SOFTWARE ENGINEER
+Professional Summary
+Innovative Software Engineer with 5+ years of experience in full-stack development, specializing in cloud-native applications and microservices architecture. Proven track record of delivering scalable solutions that drive business growth and enhance user experience.
+
+Skills
+• Programming: Java, Python, JavaScript, TypeScript
+• Frameworks: Spring Boot, React, Angular, Node.js
+• Cloud: AWS (EC2, S3, Lambda), Docker, Kubernetes
+• Database: MySQL, MongoDB, PostgreSQL
+• DevOps: Jenkins, GitHub Actions, Terraform
+• Testing: JUnit, Mockito, Jest
+
+Experience
+Senior Software Engineer | TechCorp Inc. | Jan 2020 - Present
+• Led a team of 5 developers to redesign the company's flagship product, resulting in a 40% increase in user engagement
+• Implemented microservices architecture using Spring Boot and Docker, improving system scalability and reducing deployment time by 60%
+• Developed and maintained CI/CD pipelines using Jenkins and GitHub Actions
+• Conducted code reviews and mentored junior developers, improving team productivity by 25%
+• Collaborated with product managers to define technical requirements and timelines
+
+Software Engineer | DataSystems LLC | Mar 2017 - Dec 2019
+• Designed and implemented RESTful APIs using Node.js and Express, supporting mobile and web applications
+• Developed front-end components using React and Redux, enhancing user experience
+• Optimized database queries, reducing response time by 30%
+• Participated in Agile development processes, including daily stand-ups and sprint planning
+
+Education
+Bachelor of Science in Computer Science
+University of Technology | Graduated: May 2017
+• GPA: 3.8/4.0
+• Relevant Coursework: Data Structures, Algorithms, Database Systems, Web Development`;
+            
+            // Check API connection on load
+            checkApiConnection();
+            
+            loadSampleBtn.addEventListener('click', function() {
+                inputText.value = sampleResumeText;
+            });
+            
+            checkApiBtn.addEventListener('click', function() {
+                checkApiConnection();
+            });
+            
+            // API connection check with improved error handling
+            function checkApiConnection() {
+                statusIndicator.classList.remove('online');
+                serverStatus.textContent = 'Checking API connection...';
+                
+                // Extract base URL for health check
+                const url = apiUrl.value.trim();
+                if (!url) {
+                    serverStatus.textContent = 'Please enter a valid API URL first';
+                    return;
+                }
+                
+                const baseUrl = url.includes('/') ? url.substring(0, url.lastIndexOf('/')) : url;
+                const healthUrl = `${baseUrl}/health`;
+                
+                fetch(healthUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    // Add timeout to prevent hanging on connection issues
+                    signal: AbortSignal.timeout(10000)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Server error: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'ok') {
+                        statusIndicator.classList.add('online');
+                        serverStatus.textContent = 'API is online. Model: ' + (data.details?.default_model || 'Unknown');
+                    } else {
+                        serverStatus.textContent = 'API is available but in degraded state: ' + (data.details?.ollama_status || 'Unknown issue');
+                    }
+                })
+                .catch(err => {
+                    statusIndicator.classList.remove('online');
+                    serverStatus.textContent = 'Cannot connect to API. Check URL and server status.';
+                    console.error('API connection error:', err);
+                });
+            }
+            
+            // Improved hash function for caching
+            function simpleHash(text) {
+                let hash = 0;
+                if (text.length === 0) return hash;
+                
+                for (let i = 0; i < Math.min(100, text.length); i++) {
+                    const char = text.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                
+                return hash;
+            }
+            
+            // Handle fetch retries for better reliability
+            async function fetchWithRetry(url, options, maxRetries = 3) {
+                let lastError;
+                
+                for (let i = 0; i < maxRetries; i++) {
+                    try {
+                        const response = await fetch(url, options);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return await response.json();
+                    } catch (error) {
+                        console.error(`Attempt ${i + 1} failed:`, error);
+                        lastError = error;
+                        
+                        // Wait a bit longer between retries (exponential backoff)
+                        await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+                    }
+                }
+                
+                throw lastError;
+            }
+            
+            paraphraseBtn.addEventListener('click', function() {
+                const text = inputText.value.trim();
+                const url = apiUrl.value.trim();
+                
+                if (!text) {
+                    showError('Please enter some resume text first');
+                    return;
+                }
+                
+                if (!url) {
+                    showError('Please enter a valid API URL');
+                    return;
+                }
+                
+                // Disable button while processing
+                paraphraseBtn.disabled = true;
+                paraphraseBtn.textContent = 'Processing...';
+                
+                // Reset UI
+                error.style.display = 'none';
+                results.style.display = 'none';
+                loader.style.display = 'block';
+                progressBarContainer.style.display = 'block';
+                statusMessage.textContent = 'Requesting paraphrases...';
+                progressBar.style.width = '10%';
+                
+                // Check cache first
+                const textHash = simpleHash(text);
+                if (responseCache[textHash]) {
+                    setTimeout(() => {
+                        progressBar.style.width = '100%';
+                        statusMessage.textContent = 'Retrieved from cache!';
+                        
+                        setTimeout(() => {
+                            processResults(responseCache[textHash]);
+                        }, 300);
+                    }, 500);
+                    return;
+                }
+                
+                // Improved progress animation with adaptive timing
+                let progressInterval;
+                let progressTime = 0;
+                let textLength = text.length;
+                
+                // Estimate processing time based on text length
+                const estimatedTime = textLength > 1500 ? 300 : (textLength > 800 ? 180 : 90);
+                const progressStep = 95 / estimatedTime;
+                
+                progressInterval = setInterval(() => {
+                    progressTime += 1;
+                    
+                    // Calculate a logarithmic progress that never quite reaches 100%
+                    // Adjust based on text length - longer texts progress slower
+                    let curProgress = 10;
+                    if (progressTime < estimatedTime * 0.7) {
+                        // Start slower
+                        curProgress = 10 + (progressTime * progressStep * 0.7);
+                    } else {
+                        // Then very slow as we approach the estimated time
+                        curProgress = Math.min(95, 
+                            10 + ((estimatedTime * 0.7) * progressStep * 0.7) + 
+                            ((progressTime - (estimatedTime * 0.7)) * progressStep * 0.3)
+                        );
+                    }
+                    
+                    progressBar.style.width = curProgress + '%';
+                    
+                    // Update status messages for better UX with more variety
+                    if (progressTime === 5) {
+                        statusMessage.textContent = 'Processing text...';
+                    } else if (progressTime === 15) {
+                        statusMessage.textContent = 'Generating paraphrases...';
+                    } else if (progressTime === 30) {
+                        statusMessage.textContent = 'Still working... this may take a while';
+                    } else if (progressTime === 60) {
+                        statusMessage.textContent = 'Processing large text... please wait';
+                    } else if (progressTime === 90) {
+                        statusMessage.textContent = 'AI is still paraphrasing your resume...';
+                    } else if (progressTime === 120) {
+                        statusMessage.textContent = 'Almost there...';
+                    } else if (progressTime >= 180 && progressTime % 30 === 0) {
+                        // Cycle through messages for very long waits with more variety
+                        const waitMessages = [
+                            "Still processing... thank you for your patience",
+                            "This is taking longer than expected but we're still working", 
+                            "Our AI is working hard on your text...",
+                            "Processing complex content... please wait",
+                            "The server is still processing your request...",
+                            "Large resume texts take longer to process...",
+                            "We're still here! Processing continues...",
+                            "Your resume is being processed..."
+                        ];
+                        statusMessage.textContent = waitMessages[Math.floor(progressTime/30) % waitMessages.length];
+                    }
+                    
+                    // Auto-fail after 10 minutes (600 seconds) to prevent hanging forever
+                    if (progressTime >= 600) {
+                        clearInterval(progressInterval);
+                        showError("Request timed out after 10 minutes. Please try again with a shorter resume or check if the server is running properly.");
+                        loader.style.display = 'none';
+                        progressBarContainer.style.display = 'none';
+                        paraphraseBtn.disabled = false;
+                        paraphraseBtn.textContent = 'Paraphrase Resume';
+                    }
+                }, 300);
+                
+                // Make the API request
+                // Removed the AbortController since we want the request to continue even if it takes a long time
+                fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text })
+                }, 3).then(data => {
+                    clearInterval(progressInterval);
+                    progressBar.style.width = '100%';
+                    statusMessage.textContent = 'Paraphrases ready!';
+                    
+                    // Cache the response
+                    responseCache[textHash] = data;
+                    
+                    // Small delay to complete animation
+                    setTimeout(() => {
+                        processResults(data);
+                    }, 300);
+                }).catch(err => {
+                    clearInterval(progressInterval);
+                    loader.style.display = 'none';
+                    progressBarContainer.style.display = 'none';
+                    statusMessage.textContent = '';
+                    
+                    // Improved error messaging with recovery suggestions
+                    let errorMsg = 'Error: ' + err.message;
+                    if (err.message.includes('timeout') || err.message.includes('network') || 
+                        progressTime > 180) {
+                        errorMsg += '. The server may still be processing your request. You can try refreshing the page or using a shorter resume text.';
+                    }
+                    
+                    showError(errorMsg);
+                    
+                    paraphraseBtn.disabled = false;
+                    paraphraseBtn.textContent = 'Paraphrase Resume';
+                });
+            });
+            
+            // Process results - unchanged
+            function processResults(data) {
+                loader.style.display = 'none';
+                progressBarContainer.style.display = 'none';
+                statusMessage.textContent = '';
+                
+                if (data.error) {
+                    showError(data.error);
+                    paraphraseBtn.disabled = false;
+                    paraphraseBtn.textContent = 'Paraphrase Resume';
+                    return;
+                }
+                
+                // Display original text
+                originalText.textContent = data.original;
+                
+                // Display paraphrased results with animation
+                displayResults(data.paraphrases);
+                
+                // Show results section
+                results.style.display = 'block';
+                
+                // Re-enable button
+                paraphraseBtn.disabled = false;
+                paraphraseBtn.textContent = 'Paraphrase Resume';
+            }
+            
+            // Display results - unchanged
+            function displayResults(paraphrases) {
+                paraphraseResults.innerHTML = '';
+                
+                // First add placeholder cards
+                for (let i = 0; i < paraphrases.length; i++) {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'result-placeholder';
+                    placeholder.id = `placeholder-${i}`;
+                    paraphraseResults.appendChild(placeholder);
+                }
+                
+                // Then progressively replace them with real content
+                paraphrases.forEach((paraphrase, index) => {
+                    setTimeout(() => {
+                        const placeholder = document.getElementById(`placeholder-${index}`);
+                        if (!placeholder) return;
+                        
+                        const resultCard = document.createElement('div');
+                        resultCard.className = 'result-card';
+                        
+                        const resultType = document.createElement('div');
+                        resultType.className = 'result-type';
+                        resultType.textContent = paraphrase.type;
+                        
+                        const resultDescription = document.createElement('div');
+                        resultDescription.className = 'result-description';
+                        resultDescription.textContent = paraphrase.description;
+                        
+                        const resultText = document.createElement('div');
+                        resultText.className = 'result-text';
+                        resultText.textContent = paraphrase.text;
+                        
+                        const copyBtn = document.createElement('button');
+                        copyBtn.className = 'copy-btn';
+                        copyBtn.textContent = 'Copy';
+                        copyBtn.addEventListener('click', function() {
+                            navigator.clipboard.writeText(paraphrase.text)
+                                .then(() => {
+                                    const originalText = copyBtn.textContent;
+                                    copyBtn.textContent = 'Copied!';
+                                    setTimeout(() => {
+                                        copyBtn.textContent = originalText;
+                                    }, 2000);
+                                })
+                                .catch(err => {
+                                    console.error('Could not copy text: ', err);
+                                });
+                        });
+                        
+                        resultCard.appendChild(copyBtn);
+                        resultCard.appendChild(resultType);
+                        resultCard.appendChild(resultDescription);
+                        resultCard.appendChild(resultText);
+                        
+                        // Replace placeholder with the result card
+                        placeholder.parentNode.replaceChild(resultCard, placeholder);
+                        
+                        // Trigger animation
+                        setTimeout(() => {
+                            resultCard.classList.add('visible');
+                        }, 50);
+                    }, index * 200); // Stagger the animations
+                });
+            }
+            
+            // Show error - unchanged
+            function showError(message) {
+                error.textContent = message;
+                error.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
